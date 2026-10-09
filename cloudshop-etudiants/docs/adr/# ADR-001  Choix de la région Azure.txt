@@ -1,0 +1,35 @@
+# ADR-001 : Choix de la région Azure pour l'hébergement de CloudShop
+ 
+Statut : Accepté
+Date   : 2026-10-08
+ 
+Contexte
+CloudShop doit déployer son infrastructure Cloud (catalogue, API et base de données) en répondant à des contraintes réglementaires et techniques strictes :
+- Réglementation (RGPD) : L'entreprise manipule des données de clients européens. L'hébergement doit contractuellement être localisé au sein de l'Union européenne.
+- Contrainte d'abonnement : L'usage d'une souscription *Azure for Students* limite drastiquement les quotas de ressources disponibles et restreint le catalogue de services selon les régions Microsoft.
+- Performance : La clientèle cible étant majoritairement européenne, la latence réseau doit être minimale pour optimiser l'expérience utilisateur lors de la navigation sur le catalogue.
+ 
+Options étudiées
+1. Région Europe de l'Ouest (`westeurope` - Pays-Bas)
+   - Avantages : Région Azure majeure en Europe offrant la plus grande disponibilité de services, des quotas généralement plus souples pour les abonnements étudiants, et une conformité RGPD totale. Latence excellente pour toute l'Europe.
+   - Inconvénients : Tarification historique très légèrement supérieure de quelques centimes sur certains services PaaS par rapport à d'autres régions, mais sans impact sur notre enveloppe budgétaire.
+   - Coût mensuel estimé : Conforme aux objectifs (< 5 € Dev / < 60 € Prod).
+
+2. Région France Central (`francecentral` - Paris)
+   - Avantages : Souveraineté des données renforcée pour les clients français et latence réseau optimale pour le marché local. Parfaite conformité RGPD.
+   - Inconvénients : Les abonnements *Azure for Students* y subissent régulièrement des restrictions de quotas très strictes sur les services de calcul (App Service) et de base de données (Azure SQL Serverless).
+   - Coût mensuel estimé : Équivalent à l'Option 1.
+
+3. Région Est des États-Unis (`eastus`)
+   - Avantages : Région la moins chère de tout le catalogue Azure, offrant un accès complet à tous les services et quotas sans restriction.
+   - Inconvénients : Rupture majeure de conformité RGPD (les données clients sortent de l'UE). Latence réseau dégradée pour les visiteurs européens.
+   - Coût mensuel estimé : Environ 5 % moins cher que les options européennes.
+ 
+## Décision
+L'option 1 (Europe de l'Ouest - `westeurope`) est retenue car elle garantit la conformité RGPD, offre la meilleure disponibilité de quotas pour notre abonnement Azure for Students, tout en assurant une faible latence pour nos utilisateurs.
+ 
+## Conséquences
+- Ce qui devient plus facile :Le provisionnement des ressources de l'abonnement étudiant évite les erreurs de quotas saturés fréquemment rencontrées sur la région France. La conformité juridique avec le RGPD est native.
+- Ce qui devient plus difficile :Rien en particulier.
+- Ce qui devient plus cher : Coût standard des services Azure en Europe (légèrement supérieur aux régions US, mais préservant nos plafonds de 5 € et 60 €).
+- Ce qui devient plus risqué : Risque de saturation globale de la région à l'échelle de Microsoft lors de pics de demande européens, bien que transparent pour notre échelle de trafic.

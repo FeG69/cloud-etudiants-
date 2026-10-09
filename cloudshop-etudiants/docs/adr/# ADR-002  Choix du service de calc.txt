@@ -1,0 +1,36 @@
+# ADR-002 : Choix du service de calcul pour l'API CloudShop
+ 
+Statut : Accepté
+Date   : 2026-10-08
+ 
+## Contexte
+L'application CloudShop requiert l'hébergement d'une API et d'un catalogue Web pour exposer ses produits. Ce composant de calcul doit respecter les critères suivants :
+- Trafic asymétrique : Environ 2 000 visites/jour concentrées en journée (quasi nul la nuit) avec des pics à 10 000 visites/jour pendant les soldes.
+- Maintenance zéro : Aucune machine virtuelle à administrer ni système d'exploitation à patcher (équipe de 3 personnes, pas d'astreinte).
+- Budget contraignant : Moins de 5 €/mois au total en Dev (qui ne tourne qu'en heures ouvrées) et une enveloppe globale de 60 €/mois en Prod.
+- SLA : L'API doit s'intégrer dans une chaîne respectant l'objectif global de 99,5 % de disponibilité mensuelle.
+ 
+## Options étudiées
+1. Azure Container Instances (ACI) ou Azure Kubernetes Service (AKS)
+   - Avantages : Isolation complète par conteneurs, excellente portabilité du code de l'API.
+   - Inconvénients : AKS est hors budget, trop complexe et disproportionné pour l'équipe. ACI facture à la seconde de calcul, ce qui peut rapidement créer une imprévisibilité budgétaire lors des pics de trafic (soldes) et dépasse le plafond de Dev si les conteneurs oublient d'être éteints.
+   - Coût mensuel estimé : ~10 € (Dev) / ~40 € (Prod).
+
+2. Azure Functions (Serverless / Plan Consommation)
+   - Avantages : Coût basé strictement à l'utilisation. Coût de 0 € la nuit lorsque le trafic est nul. Facturation dérisoire en Dev.
+   - Inconvénients : Problème majeur du "Cold Start" (temps de latence au premier démarrage après inactivité), ce qui dégraderait l'expérience utilisateur des clients matinaux de CloudShop. Complexité accrue pour structurer une API REST complète pour de jeunes développeurs.
+   - Coût mensuel estimé : < 1 € (Dev) / ~5 € (Prod).
+
+3. Azure App Service (Plan de service Web managé - PaaS)
+   - Avantages : Pas de VM à gérer. Déploiement simplifié de code standard (Node.js, Python, .NET). Le niveau gratuit (`F1`) est idéal pour le Dev. Le niveau Basic (`B1` / `B1v3`) en Prod offre un SLA individuel de 99,95 %, le support des domaines personnalisés, du SSL, et permet une mise à l'échelle manuelle/planifiée très simple pour absorber les pics des soldes.
+   - Inconvénients : Facturation forfaitaire continue en Prod (le service coûte la même chose même si personne ne se connecte la nuit).
+   - Coût mensuel estimé : 0 € (Dev sur tier F1) / ~13 € à 20 € (Prod sur tier B1).
+ 
+## Décision
+L'option 3 (Azure App Service) est retenue car elle offre le parfait équilibre entre simplicité de développement, absence d'administration, respect rigoureux des enveloppes budgétaires fixes et un SLA de 99,95 % qui sécurise notre cible globale.
+ 
+## Conséquences
+- Ce qui devient plus facile : Le déploiement continu depuis Git est natif. L'équipe n'a aucun conteneur ni cluster à configurer. Le coût de l'environnement de Dev est définitivement de 0 €.
+- Ce qui devient plus difficile : La gestion des pics de trafic des soldes (×5) nécessite une action manuelle ou planifiée pour ajuster temporairement la puissance de l'App Service, car l'auto-scaling dynamique à la volée est réservé aux tiers supérieurs (Standard/Premium).
+- Ce qui devient plus cher : L'API consomme une part fixe et incompressible d'environ 15 € sur le budget de production de 60 €.
+- Ce qui devient plus risqué : Le partage des ressources physiques sous-jacentes sur le niveau Basic, bien que couvert par le SLA de Microsoft.
